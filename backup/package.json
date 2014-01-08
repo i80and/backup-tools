@@ -1,0 +1,13 @@
+{
+    "name": "glacialrotate",
+    "version": "0.0.0",
+    "author": "Andrew Aldridge <i80and@foxquill.com>",
+    "scripts": {
+        "test": "./node_modules/.bin/nodeunit src/test_*"
+    },
+    "dependencies": {
+        "aws-sdk": "2.0.0-rc5",
+        "optimist": "0.6.0",
+        "nodeunit": "0.8.2"
+    }
+}
