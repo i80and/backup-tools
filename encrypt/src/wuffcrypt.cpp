@@ -179,9 +179,9 @@ public:
         memset(_nonce, 0, sizeof(_nonce));
     }
 
-    Encrypter(const SecureString& password) {
+    Encrypter(const SecureString& password, int workFactor) {
         randombytes_buf(_nonce, sizeof(_nonce));
-        kdf(password.c_str(), 14, _key, sizeof(_key));
+        kdf(password.c_str(), workFactor, _key, sizeof(_key));
     }
 
     void encrypt(const SodiumMessageBuffer& msg, SodiumEncryptedBuffer& ctext, uint32_t n) {
@@ -214,9 +214,9 @@ public:
         memset(_nonce, 0, sizeof(_nonce));
     }
 
-    Decrypter(const SecureString& password, const uint8_t* nonce) {
+    Decrypter(const SecureString& password, const uint8_t* nonce, int workFactor) {
         memcpy(_nonce, nonce, sizeof(_nonce));
-        kdf(password.c_str(), 14, _key, sizeof(_key));
+        kdf(password.c_str(), workFactor, _key, sizeof(_key));
     }
 
     int decrypt(const SodiumEncryptedBuffer& ctext, SodiumMessageBuffer& msg, uint32_t n) {
@@ -245,6 +245,35 @@ private:
     std::vector<uint8_t> _paddedBuf;
 };
 
+class File {
+public:
+    File(const std::string& path, const std::string& options) {
+        _f = fopen(path.c_str(), options.c_str());
+    }
+
+    template <typename T>
+    size_t readValue(T& out) const {
+        if(_f == nullptr) return 0;
+
+        size_t valuesRead = fread(&out, sizeof(T), 1, _f);
+        return valuesRead;
+    }
+
+    FILE* handle() {
+        return _f;
+    }
+
+    ~File() {
+        if(_f != nullptr) {
+            fclose(_f);
+        }
+    }
+
+private:
+    FILE* _f;
+};
+
+#define WORK_FACTOR 14
 class WuffCryptFile {
 public:
     static const size_t BLOCK_SIZE = 1024*1024*10;
@@ -259,8 +288,8 @@ public:
     WuffCryptFile(const std::string& path): _path(path) {}
 
     FileStatus read(std::function<void(const SodiumMessageBuffer& msg)> blockHandler, const SecureString& password) const {
-        FILE* f = fopen(_path.c_str(), "rb");
-        if(f == nullptr) return FileStatus::OpenError;
+        File f(_path, "rb");
+        if(f.handle() == nullptr) return FileStatus::OpenError;
 
         byteorder::ByteOrder byteOrder;
 
@@ -269,9 +298,8 @@ public:
             const size_t headerLength = 9;
 
             char header[10] = {0};
-            size_t bytesRead = fread(header, sizeof(char), headerLength, f);
+            size_t bytesRead = fread(header, sizeof(char), headerLength, f.handle());
             if(bytesRead < headerLength) {
-                fclose(f);
                 return FileStatus::InvalidFileType;
             }
 
@@ -282,23 +310,24 @@ public:
                 byteOrder = byteorder::ByteOrder::BigEndian;
             }
             else {
-                fclose(f);
                 return FileStatus::InvalidFileType;
             }
         }
 
+        // Read in the work factor
+        uint8_t workFactor = 0;
+        if(f.readValue(workFactor) == 0) {
+            return FileStatus::CorruptHeader;
+        }
+
         // Read in the nonce prefix
-        uint8_t nonce[encrypt_NONCEPREFIXBYTES];
-        {
-            const size_t bytesRead = fread(nonce, sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f);
-            if(bytesRead < sizeof(nonce)) {
-                fclose(f);
-                return FileStatus::CorruptHeader;
-            }
+        uint8_t nonce[encrypt_NONCEPREFIXBYTES] = {0};
+        if(f.readValue(nonce) == 0) {
+            return FileStatus::CorruptHeader;
         }
 
         // Decrypt each 10mb block, and feed it into the blockHandler
-        Decrypter dec(password, nonce);
+        Decrypter dec(password, nonce, workFactor);
         SodiumEncryptedBuffer buf(BLOCK_SIZE);
         SodiumMessageBuffer decBuf(BLOCK_SIZE);
 
@@ -308,7 +337,7 @@ public:
         uint32_t n = 0;
         size_t bytesRead = encryptedBlockSize;
         while(bytesRead == encryptedBlockSize) {
-            bytesRead = fread(buf.data(), sizeof(uint8_t), encryptedBlockSize, f);
+            bytesRead = fread(buf.data(), sizeof(uint8_t), encryptedBlockSize, f.handle());
             buf.setSize(bytesRead);
 
             // Because the nonce used will vary with system endianness, we have to adapt ourselves
@@ -319,30 +348,33 @@ public:
             int status = dec.decrypt(buf, decBuf, endianN);
             if(status != 0) {
                 // Verification failed
-                fclose(f);
                 return FileStatus::VerificationFailed;
             }
 
             blockHandler(decBuf);
         }
 
-        fclose(f);
-
         return FileStatus::OK;
     }
 
     FileStatus write(std::function<void(uint8_t* outBuf, size_t& outBufWritten, size_t blockSize)> blockFeeder, const SecureString& password) {
-        FILE* f = fopen(_path.c_str(), "wb");
-        if(f == nullptr) return FileStatus::OpenError;
+        File f(_path, "wb");
+        if(f.handle() == nullptr) return FileStatus::OpenError;
 
         {
             uint16_t byteOrderIndicator = 0x7470;
             uint8_t* byteOrderIndicatorLens = reinterpret_cast<uint8_t*>(&byteOrderIndicator);
-            fprintf(f, "wuffcry%c%c", byteOrderIndicatorLens[0], byteOrderIndicatorLens[1]);
+            fprintf(f.handle(), "wuffcry%c%c", byteOrderIndicatorLens[0], byteOrderIndicatorLens[1]);
         }
 
-        Encrypter enc(password);
-        fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f);
+        Encrypter enc(password, WORK_FACTOR);
+
+        {
+            // Write the header parameters
+            uint8_t workFactor = WORK_FACTOR;
+            fwrite(&workFactor, sizeof(workFactor), 1, f.handle());
+            fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f.handle());
+        }
 
         SodiumMessageBuffer buf(BLOCK_SIZE);
         SodiumEncryptedBuffer encBuf(BLOCK_SIZE);
@@ -357,7 +389,7 @@ public:
             buf.setSize(bufLen);
 
             enc.encrypt(buf, encBuf, n);
-            fwrite(encBuf.data(), sizeof(uint8_t), encBuf.size(), f);
+            fwrite(encBuf.data(), sizeof(uint8_t), encBuf.size(), f.handle());
 
             if(bufLen < BLOCK_SIZE) break;
 
@@ -366,9 +398,7 @@ public:
 
         // Write a trailing backup copy of the nonce, to provide some avenue for partial recovery if
         // the file is corrupted XXX IMPLEMENT ME
-        // fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f);
-
-        fclose(f);
+        // fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f.handle());
 
         return FileStatus::OK;
     }
