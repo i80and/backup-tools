@@ -1,4 +1,4 @@
-// encrypt.cpp - Part of WuffCrypt
+// wuffcrypt.cpp - Part of WuffCrypt
 // Copyright 2014 Andrew Aldridge <i80and@foxquill.com>
 
 #include <stdint.h>
