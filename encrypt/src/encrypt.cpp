@@ -71,12 +71,6 @@ public:
         return size() == 0;
     }
 
-    // void replaceWith(const SecureString& other) {
-    //     wipe();
-    //     _data = other._data;
-    //     _len = other._len;
-    // }
-
     void moveInto(SecureString& other) {
         other.wipe();
         other._data = _data;
