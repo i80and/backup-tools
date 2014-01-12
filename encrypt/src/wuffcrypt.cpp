@@ -242,7 +242,6 @@ public:
 private:
     uint8_t _key[crypto_secretbox_xsalsa20poly1305_KEYBYTES];
     uint8_t _nonce[encrypt_NONCEPREFIXBYTES];
-    std::vector<uint8_t> _paddedBuf;
 };
 
 class File {
