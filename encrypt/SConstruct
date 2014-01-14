@@ -6,7 +6,7 @@ scrypt = env.StaticLibrary('scrypt', Glob('src/thirdparty/scrypt/*.c'), CFLAGS='
 
 env.Command(['#/src/thirdparty/libsodium/dist/lib/libsodium.a', '#/src/thirdparty/libsodium/dist/include/sodium.h'],
     '#/src/thirdparty/libsodium/configure',
-    'cd src/thirdparty/libsodium/ && ./configure --prefix=`pwd`/dist && make && make install')
+    'cd src/thirdparty/libsodium/ && ./configure --prefix=`pwd`/dist --enable-static --disable-shared && make && make install')
 
 wuffcrypt = env.Program('wuffcrypt', [Glob('src/*.cpp'), scrypt, '#/src/thirdparty/libsodium/dist/lib/libsodium.a'],
     CCFLAGS='-std=c++11 -O2 -g -Wall -Wextra -Wshadow -Wno-unused-parameter',
