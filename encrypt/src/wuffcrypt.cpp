@@ -272,16 +272,19 @@ private:
     FILE* _f;
 };
 
-#define WORK_FACTOR 14
 class WuffCryptFile {
 public:
+    static const uint8_t VERSION = 0;
+    static const uint8_t WORK_FACTOR = 14;
     static const size_t BLOCK_SIZE = 1024*1024*10;
+
     enum class FileStatus {
         OK,
         OpenError,
         InvalidFileType,
         CorruptHeader,
-        VerificationFailed
+        VerificationFailed,
+        WrongVersion
     };
 
     WuffCryptFile(const std::string& path): _path(path) {}
@@ -313,16 +316,25 @@ public:
             }
         }
 
+        // Check if the file format version is right
+        uint8_t version = 0;
+
         // Read in the work factor
         uint8_t workFactor = 0;
-        if(f.readValue(workFactor) == 0) {
-            return FileStatus::CorruptHeader;
-        }
 
         // Read in the nonce prefix
         uint8_t nonce[encrypt_NONCEPREFIXBYTES] = {0};
-        if(f.readValue(nonce) == 0) {
+
+        bool headerOK = f.readValue(version)
+            && f.readValue(workFactor)
+            && f.readValue(nonce);
+
+        if(!headerOK) {
             return FileStatus::CorruptHeader;
+        }
+
+        if(version != VERSION) {
+            return FileStatus::WrongVersion;
         }
 
         // Decrypt each 10mb block, and feed it into the blockHandler
@@ -369,8 +381,11 @@ public:
         Encrypter enc(password, WORK_FACTOR);
 
         {
-            // Write the header parameters
+            uint8_t version = VERSION;
             uint8_t workFactor = WORK_FACTOR;
+
+            // Write the header parameters
+            fwrite(&version, sizeof(version), 1, f.handle());
             fwrite(&workFactor, sizeof(workFactor), 1, f.handle());
             fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f.handle());
         }
@@ -574,6 +589,10 @@ int main(int argc, char** argv) {
             }
             case WuffCryptFile::FileStatus::VerificationFailed: {
                 fprintf(stderr, "Failed to decrypt.  Either the password is wrong, or the file has been tampered with in some way.\n");
+                return 1;
+            }
+            case WuffCryptFile::FileStatus::WrongVersion: {
+                fprintf(stderr, "File version mismatch\n");
                 return 1;
             }
             case WuffCryptFile::FileStatus::OK: { break; }
