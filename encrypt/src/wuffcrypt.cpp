@@ -278,8 +278,8 @@ private:
 class WuffCryptFile {
 public:
     static const uint8_t VERSION = 0;
-    static const uint8_t WORK_FACTOR = 14;
-    static const size_t BLOCK_SIZE = 1024*1024*10;
+    static const uint8_t WORK_FACTOR = 17;
+    static const size_t BLOCK_SIZE = 1024*1024;
 
     enum class FileStatus {
         OK,
