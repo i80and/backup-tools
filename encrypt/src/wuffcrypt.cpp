@@ -437,21 +437,33 @@ public:
     Status parse(int argc, char** argv) {
         std::vector<char*> plainArgs;
 
-        char mode = '?';
+        enum class ParseMode {
+            None,
+            Password
+        } mode = ParseMode::None;
+
         for(int i = 1; i < argc; i += 1) {
-            if(mode == 'p') {
-                // _password.replaceWith(SecureString(argv[i]));
-                SecureString(argv[i]).moveInto(_password);
-                mode = '?';
+            if(mode != ParseMode::None) {
+                switch(mode) {
+                    case ParseMode::None: { break; }
+                    case ParseMode::Password: {
+                        SecureString(argv[i]).moveInto(_password);
+                        break;
+                    }
+                }
+
+                mode = ParseMode::None;
+                continue;
             }
-            else if(strcmp(argv[i], "-e") == 0) {
+
+            if(strcmp(argv[i], "-e") == 0) {
                 _operation = Operation::Encrypt;
             }
             else if(strcmp(argv[i], "-d") == 0) {
                 _operation = Operation::Decrypt;
             }
             else if(strcmp(argv[i], "-p") == 0) {
-                mode = 'p';
+                mode = ParseMode::Password;
             }
             else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
                 _showHelp = true;
