@@ -117,6 +117,9 @@ void kdf(const std::string& password, int workFactor, uint8_t* outBuf, size_t bu
     verify(result == 0);
 }
 
+// Wrapper around a buffer that includes an additional zero-padded buffer of length P at the
+// beginning that is excluded from size checks.  The parameter D is an additional stretch of
+// allocation added to all buffers, and included in size checks.
 template <int P, int D>
 class PaddedBuffer {
 public:
@@ -155,7 +158,7 @@ public:
         _size = newSize;
     }
 
-    size_t padding() const {
+    static size_t padding() {
         return P;
     }
 
