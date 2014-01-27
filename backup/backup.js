@@ -5,7 +5,7 @@ var glacier = require('./src/glacier')
 var s3 = require('./src/s3')
 var callbackmanager = require('./src/callbackmanager')
 
-var BackupSystem = function(siteID, options) {
+var BackupSystem = function(siteID, vaultName, options) {
     if(options === undefined) options = {}
     if(options.glacierOptions === undefined) options.glacierOptions = {}
 
@@ -17,7 +17,7 @@ var BackupSystem = function(siteID, options) {
     }
 
     this.storage = new s3.S3(creationOptions)
-    this.vaultName = creationOptions.vault || this.siteID
+    this.vaultName = vaultName
 }
 
 BackupSystem.prototype.backup = function(path, expiry, callback) {
@@ -119,7 +119,7 @@ var main = function(argv) {
     options.glacierOptions.secretAccessKey = argv.awsSecretKey
     options.glacierOptions.region = argv.awsRegion
 
-    var backupSystem = new BackupSystem(argv.name, options)
+    var backupSystem = new BackupSystem(argv.name, argv.vault, options)
 
     var backupNoodle = function(next) {
         if(argv.backup) {
