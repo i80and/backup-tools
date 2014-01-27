@@ -22,12 +22,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty/scrypt/)
 include_directories(${SODIUM_DIR}/include/)
 link_directories(${SODIUM_DIR}/lib/)
 
-set(SRC ${WUFFCRYPT_SRC} ${SCRYPT_SRC} ${SODIUM_DIR}/lib/libsodium.a)
+set(SRC ${WUFFCRYPT_SRC} ${SCRYPT_SRC})
 add_executable(wuffcrypt ${SRC})
 add_dependencies(wuffcrypt libsodium)
 target_link_libraries(wuffcrypt sodium)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wno-unused-parameter")
 endif()
 
