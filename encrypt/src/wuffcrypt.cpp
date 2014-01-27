@@ -48,19 +48,42 @@ namespace byteorder {
 class SecureString {
 public:
     SecureString(): _data(nullptr), _len(0) {}
-    SecureString(char* str): _data(str), _len(0) {
-        if(_data != nullptr) {
-            _len = strlen(_data);
-        }
+
+    SecureString(char* str): _len(strlen(str)) {
+        _data = new char[_len+1];
+        strcpy(_data, str);
+
+        // Clear our original source
+        sodium_memzero(str, _len);
     }
+
+    SecureString(size_t len): _len(len) {
+        _data = new char[_len+1];
+        _data[_len] = '\0';
+    }
+
+    SecureString(uint8_t* buf, size_t len): _len(len) {
+        // Copy buf into a buffer we control
+        _data = new char[_len+1];
+        memcpy(_data, buf, len);
+        _data[_len] = '\0';
+
+        // Clear our original source
+        sodium_memzero(buf, _len);
+    }
+
     SecureString(const SecureString& orig) = delete;
 
     const char* c_str() const {
         return _data;
     }
 
-    const char* data() const {
-        return _data;
+    const uint8_t* data() const {
+        return reinterpret_cast<const uint8_t*>(_data);
+    }
+
+    uint8_t* data() {
+        return reinterpret_cast<uint8_t*>(_data);
     }
 
     size_t size() const {
@@ -81,7 +104,10 @@ public:
     }
 
     ~SecureString() {
-        wipe();
+        if(_data != nullptr) {
+            wipe();
+            delete[] _data;
+        }
     }
 
     SecureString& operator=(const SecureString& other) = delete;
@@ -177,14 +203,9 @@ typedef PaddedBuffer<crypto_secretbox_xsalsa20poly1305_BOXZEROBYTES,crypto_secre
 #define encrypt_NONCEPREFIXBYTES (crypto_secretbox_xsalsa20poly1305_NONCEBYTES-sizeof(uint32_t))
 class Encrypter {
 public:
-    Encrypter() {
-        memset(_key, 0, sizeof(_key));
-        memset(_nonce, 0, sizeof(_nonce));
-    }
-
-    Encrypter(const SecureString& password, int workFactor) {
+    Encrypter(const SecureString& password, int workFactor): _key(crypto_secretbox_xsalsa20poly1305_KEYBYTES) {
         randombytes_buf(_nonce, sizeof(_nonce));
-        kdf(password.c_str(), workFactor, _key, sizeof(_key));
+        kdf(password.c_str(), workFactor, _key.data(), _key.size());
     }
 
     void encrypt(const SodiumMessageBuffer& msg, SodiumEncryptedBuffer& ctext, uint32_t n) {
@@ -193,7 +214,7 @@ public:
 
         *reinterpret_cast<uint32_t*>((nonce + sizeof(_nonce))) = n;
 
-        crypto_secretbox_xsalsa20poly1305(ctext.rawData(), msg.rawData(), msg.rawSize(), nonce, _key);
+        crypto_secretbox_xsalsa20poly1305(ctext.rawData(), msg.rawData(), msg.rawSize(), nonce, _key.data());
         ctext.setSize(msg.size() + ctext.padding());
     }
 
@@ -201,25 +222,16 @@ public:
         return _nonce;
     }
 
-    ~Encrypter() {
-        sodium_memzero(_key, sizeof(_key));
-    }
-
 private:
-    uint8_t _key[crypto_secretbox_xsalsa20poly1305_KEYBYTES];
+    SecureString _key;
     uint8_t _nonce[encrypt_NONCEPREFIXBYTES];
 };
 
 class Decrypter {
 public:
-    Decrypter() {
-        memset(_key, 0, sizeof(_key));
-        memset(_nonce, 0, sizeof(_nonce));
-    }
-
-    Decrypter(const SecureString& password, const uint8_t* nonce, int workFactor) {
+    Decrypter(const SecureString& password, const uint8_t* nonce, int workFactor): _key(crypto_secretbox_xsalsa20poly1305_KEYBYTES) {
         memcpy(_nonce, nonce, sizeof(_nonce));
-        kdf(password.c_str(), workFactor, _key, sizeof(_key));
+        kdf(password.c_str(), workFactor, _key.data(), _key.size());
     }
 
     int decrypt(const SodiumEncryptedBuffer& ctext, SodiumMessageBuffer& msg, uint32_t n) {
@@ -227,7 +239,7 @@ public:
         memcpy(nonce, _nonce, sizeof(_nonce));
         *reinterpret_cast<uint32_t*>(nonce + sizeof(_nonce)) = n;
 
-        int status = crypto_secretbox_xsalsa20poly1305_open(msg.rawData(), ctext.rawData(), ctext.rawSize(), nonce, _key);
+        int status = crypto_secretbox_xsalsa20poly1305_open(msg.rawData(), ctext.rawData(), ctext.rawSize(), nonce, _key.data());
         if(status != 0) {
             // The message verification failed; the ciphertext has been tampered with
             msg.setSize(0);
@@ -238,12 +250,8 @@ public:
         return 0;
     }
 
-    ~Decrypter() {
-        sodium_memzero(_key, sizeof(_key));
-    }
-
 private:
-    uint8_t _key[crypto_secretbox_xsalsa20poly1305_KEYBYTES];
+    SecureString _key;
     uint8_t _nonce[encrypt_NONCEPREFIXBYTES];
 };
 
