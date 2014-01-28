@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 include(ExternalProject)
 
+option(BUILD_TESTS "Build unit tests" ON)
+
 project(wuffcrypt)
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 1)
@@ -43,3 +45,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 set(CMAKE_BUILD_TYPE Release)
+
+# Testing stuff
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+    enable_testing()
+endif()
+add_test(NAME SecureString COMMAND tests/securestring)
+add_test(NAME PaddedBuffer COMMAND tests/paddedbuffer)

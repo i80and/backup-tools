@@ -45,8 +45,12 @@ public:
     }
 
     void setSize(size_t newSize) {
-        verify(newSize <= _capacity);
+        verify(canSetSize(newSize));
         _size = newSize;
+    }
+
+    bool canSetSize(size_t newSize) const {
+        return newSize <= _capacity;
     }
 
     static size_t padding() {
