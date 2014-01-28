@@ -124,6 +124,7 @@ private:
 };
 
 void printUsage(const char* path) {
+    printf("wuffcrypt %s\n", WUFFCRYPT_VERSION);
     printf("Usage: %s [-d | -e] -p [password] infile outfile\n", path);
     printf("\t-d: Decrypt\n");
     printf("\t-e: Encrypt\n");
@@ -471,6 +472,7 @@ public:
             }
             else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
                 _showHelp = true;
+                return Status::OK;
             }
             else if(argv[i][0] == '-') {
                 return Status::UnknownOption;
@@ -523,8 +525,10 @@ private:
 };
 
 int main(int argc, char** argv) {
-    // Disclaimer
-    fprintf(stderr, "====== DANGER DANGER Experimental software; do NOT trust DANGER DANGER ======\n\n");
+    printf("\nwuffcrypt is experimental software; while it is belived to provide\n"
+           "best-of-breed encryption, it has not undergone any third-party vetting\n"
+           "or peer-review process.  It is therefore suggested that you use it only in\n"
+           "circumstances where you are willing to accept the cost of faulty functioning.\n\n");
 
     Arguments args;
     auto argStatus = args.parse(argc, argv);

@@ -4,7 +4,9 @@ include(ExternalProject)
 project(wuffcrypt)
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 1)
-set(VERSION_BUILD 0)
+set(VERSION_BUILD 0-git)
+
+add_definitions(-DWUFFCRYPT_VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
 
 set(SODIUM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty/libsodium)
 ExternalProject_Add(libsodium
