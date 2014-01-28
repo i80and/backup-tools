@@ -348,7 +348,7 @@ public:
             return FileStatus::WrongVersion;
         }
 
-        // Decrypt each 10mb block, and feed it into the blockHandler
+        // Decrypt each block, and feed it into the blockHandler
         Decrypter dec(password, nonce, workFactor);
         SodiumEncryptedBuffer buf(BLOCK_SIZE);
         SodiumMessageBuffer decBuf(BLOCK_SIZE);
@@ -420,10 +420,6 @@ public:
 
             n += 1;
         }
-
-        // Write a trailing backup copy of the nonce, to provide some avenue for partial recovery if
-        // the file is corrupted XXX IMPLEMENT ME
-        // fwrite(enc.noncePrefix(), sizeof(uint8_t), encrypt_NONCEPREFIXBYTES, f.handle());
 
         return FileStatus::OK;
     }
