@@ -28,7 +28,16 @@ add_dependencies(wuffcrypt libsodium)
 target_link_libraries(wuffcrypt sodium)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wno-unused-parameter")
+    # CMake tells Clang on Windows to add a .lib suffix that libsodium doesn't kick out
+    set(CMAKE_LINK_LIBRARY_SUFFIX "")
+
+    # Haiku requires that we explicitly link with fstack-protector
+    set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wno-unused-parameter -fstack-protector")
+
+    # Mac OS X's libstdc++ installation is awful; force libc++
+    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+    endif()
 endif()
 
 set(CMAKE_BUILD_TYPE Release)
