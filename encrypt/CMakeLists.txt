@@ -17,7 +17,7 @@ ExternalProject_Add(libsodium
                     BUILD_IN_SOURCE 1
 )
 
-set(WUFFCRYPT_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/wuffcrypt.cpp)
+file(GLOB WUFFCRYPT_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 file(GLOB SCRYPT_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty/scrypt/*.c)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty/scrypt/)
