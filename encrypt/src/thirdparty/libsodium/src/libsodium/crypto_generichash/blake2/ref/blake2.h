@@ -11,20 +11,23 @@
    this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
 
-#ifndef __BLAKE2_H__
-#define __BLAKE2_H__
+#ifndef blake2_H
+#define blake2_H
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include "crypto_generichash_blake2b.h"
 
-#define blake2b_init_param crypto_generichash_blake2b__init_param
-#define blake2b_init       crypto_generichash_blake2b__init
-#define blake2b_init_key   crypto_generichash_blake2b__init_key
-#define blake2b_update     crypto_generichash_blake2b__update
-#define blake2b_final      crypto_generichash_blake2b__final
-#define blake2b            crypto_generichash_blake2b__blake2b
+#define blake2b_init_param             crypto_generichash_blake2b__init_param
+#define blake2b_init                   crypto_generichash_blake2b__init
+#define blake2b_init_salt_personal     crypto_generichash_blake2b__init_salt_personal
+#define blake2b_init_key               crypto_generichash_blake2b__init_key
+#define blake2b_init_key_salt_personal crypto_generichash_blake2b__init_key_salt_personal
+#define blake2b_update                 crypto_generichash_blake2b__update
+#define blake2b_final                  crypto_generichash_blake2b__final
+#define blake2b                        crypto_generichash_blake2b__blake2b
+#define blake2b_salt_personal          crypto_generichash_blake2b__blake2b_salt_personal
 
 #if defined(_MSC_VER)
 #define ALIGN(x) __declspec(align(x))
@@ -55,7 +58,7 @@ extern "C" {
   };
 
 #pragma pack(push, 1)
-  typedef struct __blake2s_param
+  typedef struct blake2s_param_
   {
     uint8_t  digest_length; // 1
     uint8_t  key_length;    // 2
@@ -70,7 +73,7 @@ extern "C" {
     uint8_t  personal[BLAKE2S_PERSONALBYTES];  // 32
   } blake2s_param;
 
-  ALIGN( 64 ) typedef struct __blake2s_state
+  ALIGN( 64 ) typedef struct blake2s_state_
   {
     uint32_t h[8];
     uint32_t t[2];
@@ -80,7 +83,7 @@ extern "C" {
     uint8_t  last_node;
   } blake2s_state ;
 
-  typedef struct __blake2b_param
+  typedef struct blake2b_param_
   {
     uint8_t  digest_length; // 1
     uint8_t  key_length;    // 2
@@ -98,7 +101,7 @@ extern "C" {
 #ifndef DEFINE_BLAKE2B_STATE
 typedef crypto_generichash_blake2b_state blake2b_state;
 #else
-  ALIGN( 64 ) typedef struct __blake2b_state
+  ALIGN( 64 ) typedef struct blake2b_state_
   {
     uint64_t h[8];
     uint64_t t[2];
@@ -109,7 +112,7 @@ typedef crypto_generichash_blake2b_state blake2b_state;
   } blake2b_state;
 #endif
 
-  typedef struct __blake2sp_state
+  typedef struct blake2sp_state_
   {
     blake2s_state S[8][1];
     blake2s_state R[1];
@@ -117,7 +120,7 @@ typedef crypto_generichash_blake2b_state blake2b_state;
     size_t  buflen;
   } blake2sp_state;
 
-  typedef struct __blake2bp_state
+  typedef struct blake2bp_state_
   {
     blake2b_state S[4][1];
     blake2b_state R[1];
@@ -134,7 +137,11 @@ typedef crypto_generichash_blake2b_state blake2b_state;
   int blake2s_final( blake2s_state *S, uint8_t *out, uint8_t outlen );
 
   int blake2b_init( blake2b_state *S, const uint8_t outlen );
+  int blake2b_init_salt_personal( blake2b_state *S, const uint8_t outlen,
+                                  const void *personal, const void *salt );
   int blake2b_init_key( blake2b_state *S, const uint8_t outlen, const void *key, const uint8_t keylen );
+  int blake2b_init_key_salt_personal( blake2b_state *S, const uint8_t outlen, const void *key, const uint8_t keylen,
+                                      const void *salt, const void *personal );
   int blake2b_init_param( blake2b_state *S, const blake2b_param *P );
   int blake2b_update( blake2b_state *S, const uint8_t *in, uint64_t inlen );
   int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen );
@@ -152,6 +159,7 @@ typedef crypto_generichash_blake2b_state blake2b_state;
   // Simple API
   int blake2s( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2b( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
+  int blake2b_salt_personal( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen, const void *salt, const void *personal );
 
   int blake2sp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2bp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );

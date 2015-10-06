@@ -7,8 +7,15 @@
 #include "export.h"
 
 #ifdef __cplusplus
+# if __GNUC__
+#  pragma GCC diagnostic ignored "-Wlong-long"
+# endif
 extern "C" {
 #endif
+
+typedef crypto_onetimeauth_poly1305_state crypto_onetimeauth_state;
+SODIUM_EXPORT
+size_t  crypto_onetimeauth_statebytes(void);
 
 #define crypto_onetimeauth_BYTES crypto_onetimeauth_poly1305_BYTES
 SODIUM_EXPORT
@@ -29,6 +36,19 @@ int crypto_onetimeauth(unsigned char *out, const unsigned char *in,
 SODIUM_EXPORT
 int crypto_onetimeauth_verify(const unsigned char *h, const unsigned char *in,
                               unsigned long long inlen, const unsigned char *k);
+
+SODIUM_EXPORT
+int crypto_onetimeauth_init(crypto_onetimeauth_state *state,
+                            const unsigned char *key);
+
+SODIUM_EXPORT
+int crypto_onetimeauth_update(crypto_onetimeauth_state *state,
+                              const unsigned char *in,
+                              unsigned long long inlen);
+
+SODIUM_EXPORT
+int crypto_onetimeauth_final(crypto_onetimeauth_state *state,
+                             unsigned char *out);
 
 #ifdef __cplusplus
 }
