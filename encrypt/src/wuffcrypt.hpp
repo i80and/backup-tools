@@ -84,7 +84,7 @@ public:
         WrongVersion
     };
 
-    WuffCryptFile(const std::string& path): _path(path) {}
+    explicit WuffCryptFile(const std::string& path): _path(path) {}
 
     FileStatus read(std::function<void(const SodiumMessageBuffer& msg)> blockHandler, const SecureString& password) const;
     FileStatus write(std::function<void(uint8_t* outBuf, size_t& outBufWritten, size_t blockSize)> blockFeeder, const SecureString& password);

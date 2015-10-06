@@ -10,22 +10,22 @@ class SecureString {
 public:
     SecureString(): _data(nullptr), _len(0) {}
 
-    SecureString(char* str): _len(strlen(str)) {
-        _data = new char[_len+1];
-        strcpy(_data, str);
+    explicit SecureString(char* str): SecureString(strlen(str)) {
+        snprintf(_data, _len+1, "%s", str);
 
         // Clear our original source
         sodium_memzero(str, _len);
     }
 
-    SecureString(size_t len): _len(len) {
+    // Always allocates one extra byte for a terminating nul character
+    explicit SecureString(size_t len): _len(len) {
         _data = new char[_len+1];
         _data[_len] = '\0';
+        sodium_mlock(_data, len+1);
     }
 
-    SecureString(uint8_t* buf, size_t len): _len(len) {
+    explicit SecureString(uint8_t* buf, size_t len): SecureString(len) {
         // Copy buf into a buffer we control
-        _data = new char[_len+1];
         memcpy(_data, buf, len);
         _data[_len] = '\0';
 
@@ -67,6 +67,7 @@ public:
     ~SecureString() {
         if(_data != nullptr) {
             wipe();
+            sodium_munlock(_data, _len+1);
             delete[] _data;
         }
     }

@@ -14,7 +14,7 @@
 template <int P, int D>
 class PaddedBuffer {
 public:
-    PaddedBuffer(size_t len): _data(new uint8_t[P+D+len]), _size(0), _capacity(D+len) {
+    explicit PaddedBuffer(size_t len): _data(new uint8_t[P+D+len]), _size(0), _capacity(D+len) {
         memset(_data, 0, P);
     }
     PaddedBuffer() = delete;
