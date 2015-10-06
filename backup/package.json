@@ -2,12 +2,8 @@
     "name": "glacialrotate",
     "version": "0.0.0",
     "author": "Andrew Aldridge <i80and@foxquill.com>",
-    "scripts": {
-        "test": "./node_modules/.bin/nodeunit src/test_*"
-    },
     "dependencies": {
         "aws-sdk": "2.2",
-        "yargs": "3.26",
-        "nodeunit": "0.9"
+        "yargs": "3.26"
     }
 }

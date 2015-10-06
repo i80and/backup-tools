@@ -2,7 +2,6 @@
 
 const fs = require('fs')
 const s3 = require('./src/s3')
-const callbackmanager = require('./src/callbackmanager')
 
 const BackupSystem = function(siteID, vaultName, options) {
     if(options === undefined) { options = {} }
@@ -19,38 +18,23 @@ const BackupSystem = function(siteID, vaultName, options) {
     this.vaultName = vaultName
 }
 
-BackupSystem.prototype.backup = function(path, expiry, callback) {
+BackupSystem.prototype.backup = function(path, expiry) {
     const now = new Date()
 
     // If the object has already expired somehow, that's a no-op
     if(now >= expiry) {
-        callback(null)
+        return new Promise((resolve, reject) => { resolve(null) })
     }
 
     const description = this.siteID + ' ' + now.toISOString() + ' ' + expiry.toISOString()
-    this.storage.uploadArchive(this.vaultName, path, description, callback, {'Expires': expiry})
+    return this.storage.uploadArchive(this.vaultName, path, description, {'Expires': expiry})
 }
 
-BackupSystem.prototype.list = function(callback) {
-    let inventory
-
-    // Get the Glacier vault inventory
-    const getInventoryNoodle = (next) => {
-        this.storage.getInventory(this.vaultName, function(err, data) {
-            if(err !== null) {
-                callback(err, null)
-                return
-            }
-
-            inventory = data
-            next()
-        })
-    }
-
-    // Using the inventory, remove any expired archives
-    const listNoodle = function(next) {
+BackupSystem.prototype.list = function() {
+    // Get the S3 vault inventory
+    return this.storage.getInventory(this.vaultName).then((err, inventory) => {
+        // Using the inventory, remove any expired archives
         const results = []
-
         inventory.forEach(function(archive) {
             const descriptionSegments = archive.description.split(' ')
             const expiryDate = new Date(Date.parse(descriptionSegments[descriptionSegments.length - 1]))
@@ -65,43 +49,26 @@ BackupSystem.prototype.list = function(callback) {
             })
         })
 
-        callback(null, results)
-    }
-
-    callbackmanager.serialize([
-        getInventoryNoodle,
-        listNoodle
-    ])
-}
-
-BackupSystem.prototype.prune = function(callback) {
-    this.list((err, archives) => {
-        // Only allow 5 deletion tasks to execute at once, and wait for all of them to finish before
-        // hitting the callback
-        const barrier = new callbackmanager.Barrier(5)
-
-        archives.forEach(function(archive) {
-            const shouldPrune = isNaN(archive.date) || isNaN(archive.expiry) || (archive.expiry < (new Date()))
-            if(shouldPrune) {
-                barrier.doTask(function(next) {
-                    this.storage.removeArchive(this.vaultName, archive.id, next)
-                })
-            }
-        })
-
-        barrier.wait(callback)
+        return results
     })
 }
 
-BackupSystem.prototype.restore = function(archiveID, callback) {
-    this.storage.getArchive(this.vaultName, archiveID, (err, archive) => {
-        if(err !== null) {
-            callback(err)
-            return
-        }
+BackupSystem.prototype.prune = function() {
+    return this.list().then((err, archives) => {
+        const toPrune = archives.filter((archive) => {
+            return isNaN(archive.date) || isNaN(archive.expiry) || (archive.expiry < (new Date()))
+        })
 
-        fs.writeFile(archive.key, archive.body, () => {
-            callback(null)
+        return this.storage.removeArchives(this.vaultName, toPrune)
+    })
+}
+
+BackupSystem.prototype.restore = function(archiveID) {
+    return this.storage.getArchive(this.vaultName, archiveID).then((err, archive) => {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(archive.key, archive.body, () => {
+                return resolve()
+            })
         })
     })
 }
@@ -115,91 +82,57 @@ function main(argv) {
 
     const backupSystem = new BackupSystem(argv.name, argv.vault, options)
 
-    const backupNoodle = (next) => {
-        if(argv.backup) {
-            // Expire in either a year or a week
-            const expiry = new Date()
-            if(argv.longTermBackup) {
-                expiry.setFullYear(expiry.getFullYear() + 1)
+    new Promise((resolve, reject) => {
+        // Backup
+        if(!argv.backup) { return resolve() }
+
+        // Expire in either a year or a week
+        const expiry = new Date()
+        if(argv.longTermBackup) {
+            expiry.setFullYear(expiry.getFullYear() + 1)
+        }
+        else {
+            expiry.setDate(expiry.getDate() + 7)
+        }
+
+        backupSystem.backup(argv.backup, expiry).then((err, archiveID) => {
+            if(err !== null) {
+                console.error('Error backing up: ' + err)
+                return reject()
             }
             else {
-                expiry.setDate(expiry.getDate() + 7)
+                console.log('Backup created: Archive ' + archiveID)
             }
 
-            backupSystem.backup(argv.backup, expiry, (err, archiveID) => {
-                if(err !== null) {
-                    console.error('Error backing up: ' + err)
-                }
-                else {
-                    console.log('Backup created: Archive ' + archiveID)
-                }
+            return resolve()
+        })
+    }).then(() => {
+        // Prune
+        if(!argv.prune) { return }
 
-                next()
+        return backupSystem.prune()
+    }).then(() => {
+        // List backups
+        if(!argv.list) { return }
+
+        return backupSystem.list().then((err, archives) => {
+            archives.forEach((archive) => {
+                console.log(archive.id + ':\t' + archive.date)
             })
-        }
-        else {
-            next()
-        }
-    }
+        })
+    }).then(() => {
+        // Restore
+        if(!argv.restore) { return }
 
-    const pruneNoodle = (next) => {
-        if(argv.prune) {
-            backupSystem.prune(() => {
-                next()
-            })
-        }
-        else {
-            next()
-        }
-    }
-
-    const listBackupsNoodle = (next) => {
-        if(argv.list) {
-            backupSystem.list((err, archives) => {
-                if(err !== null) {
-                    throw err
-                }
-
-                archives.forEach((archive) => {
-                    console.log(archive.id + ':\t' + archive.date)
-                })
-
-                next()
-            })
-        }
-        else {
-            next()
-        }
-    }
-
-    const restoreNoodle = (next) => {
-        if(argv.restore) {
-            backupSystem.restore(argv.restore, (err, data) => {
-                if(err !== null) {
-                    throw err
-                }
-
-                next()
-            })
-        }
-        else {
-            next()
-        }
-    }
-
-    callbackmanager.serialize([
-        backupNoodle,
-        pruneNoodle,
-        listBackupsNoodle,
-        restoreNoodle
-    ])
+        return backupSystem.restore(argv.restore)
+    })
 }
 
 main(require('yargs')
     .usage('Usage: $0')
     .demand(['name', 'awsKeyID', 'awsSecretKey', 'vault'])
     .describe('name', 'The name of the backup site; this will be prefixed to the date.')
-    .describe('vault', 'The name of the Glacier vault to use.')
+    .describe('vault', 'The name of the S3 bucket to use.')
     .describe('awsKeyID', 'Your public AWS key.')
     .describe('awsSecretKey', 'Your AWS secret key.')
     .describe('backup', 'The archive to upload to S3.')

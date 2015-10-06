@@ -7,7 +7,7 @@ const S3 = function(options) {
     this.s3 = new aws.S3(options)
 }
 
-S3.prototype.uploadArchive = function(bucket, path, description, callback, hints) {
+S3.prototype.uploadArchive = function(bucket, path, description, hints) {
     // XXX we should be doing multi-part uploads to avoid needing to read the whole shebang in
     const data = fs.readFileSync(path)
 
@@ -18,21 +18,24 @@ S3.prototype.uploadArchive = function(bucket, path, description, callback, hints
         'ACL': 'private'
     }
 
-    this.s3.putObject(params, (err, data) => {
-        if(err !== null) {
-            callback(err)
-        }
-        else {
-            callback(null, description)
-        }
+    return new Promise((resolve, reject) => {
+        this.s3.putObject(params, (err, data) => {
+            if(err !== null) {
+                return reject(err, null)
+            }
+
+            return resolve(null, description)
+        })
     })
 }
 
-S3.prototype.getInventory = function(bucket, callback) {
-    this.s3.listObjects({'Bucket': bucket}, (err, data) => {
-        if(err !== null) {
-            callback(err, null)
-        } else {
+S3.prototype.getInventory = function(bucket) {
+    return new Promise((resolve, reject) => {
+        this.s3.listObjects({'Bucket': bucket}, (err, data) => {
+            if(err !== null) {
+                return reject(err, null)
+            }
+
             const results = []
             data.Contents.forEach(function(archive) {
                 results.push({
@@ -40,29 +43,39 @@ S3.prototype.getInventory = function(bucket, callback) {
                     'description': archive.Key
                 })
             })
-            callback(null, results)
-        }
+            return resolve(null, results)
+        })
     })
 }
 
-S3.prototype.getArchive = function(bucket, archiveID, callback) {
-    this.s3.getObject({'Bucket': bucket, 'Key': archiveID}, (err, data) => {
-        if(err !== null) {
-            callback(err, null)
-        }
-        else {
-            callback(null, {
+S3.prototype.getArchive = function(bucket, archiveID) {
+    return new Promise((resolve, reject) => {
+        this.s3.getObject({'Bucket': bucket, 'Key': archiveID}, (err, data) => {
+            if(err !== null) {
+                return reject(err, null)
+            }
+
+            return resolve(null, {
                 'key': archiveID,
                 'description': archiveID,
                 'body': data.Body
             })
-        }
+        })
     })
 }
 
-S3.prototype.removeArchive = function(bucket, key, callback) {
-    this.s3.deleteObject({'Bucket': bucket, 'Key': key}, (err, data) => {
-        callback(err, data)
+S3.prototype.removeArchives = function(bucket, keys) {
+    const keyObjects = keys.map((key) => { return {'Key': key} })
+
+    return new Promise((resolve, reject) => {
+        this.s3.deleteObjects({'Bucket': bucket,
+                               'Delete': {'Objects': keyObjects}}, (err, data) => {
+            if(err !== null) {
+                return resolve(err, null)
+            }
+
+            return resolve(null, data)
+        })
     })
 }
 
