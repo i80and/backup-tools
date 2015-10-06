@@ -8,12 +8,11 @@ const S3 = function(options) {
 }
 
 S3.prototype.uploadArchive = function(bucket, path, description, hints) {
-    // XXX we should be doing multi-part uploads to avoid needing to read the whole shebang in
-    const data = fs.readFileSync(path)
+    const stream = fs.createReadStream(path)
 
     const params = {
         'Bucket': bucket,
-        'Body': data,
+        'Body': stream,
         'Key': description,
         'ACL': 'private'
     }
