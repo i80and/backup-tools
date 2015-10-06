@@ -201,7 +201,7 @@ var main = function(argv) {
     ])
 }
 
-main(require('optimist')
+main(require('yargs')
     .usage('Usage: $0')
     .demand(['name', 'awsKeyID', 'awsSecretKey', 'vault'])
     .describe('name', 'The name of the backup site; this will be prefixed to the date.')
