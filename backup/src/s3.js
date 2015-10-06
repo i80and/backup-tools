@@ -14,6 +14,7 @@ S3.prototype.uploadArchive = function(bucket, path, description, hints) {
         'Bucket': bucket,
         'Body': stream,
         'Key': description,
+        'StorageClass': 'STANDARD_IA',
         'ACL': 'private'
     }
 
