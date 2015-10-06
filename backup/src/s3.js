@@ -44,17 +44,16 @@ S3.prototype.getInventory = function(bucket) {
     })
 }
 
-S3.prototype.getArchive = function(bucket, archiveID) {
+S3.prototype.getArchive = function(bucket, archiveID, writeStream) {
     return new Promise((resolve, reject) => {
         this.s3.getObject({'Bucket': bucket, 'Key': archiveID}, (err, data) => {
             if(err) { return reject(err) }
 
             return resolve({
                 'key': archiveID,
-                'description': archiveID,
-                'body': data.Body
+                'description': archiveID
             })
-        })
+        }).createReadStream().pipe(writeStream)
     })
 }
 

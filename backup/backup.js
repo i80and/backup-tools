@@ -65,11 +65,15 @@ BackupSystem.prototype.prune = function() {
 }
 
 BackupSystem.prototype.restore = function(archiveID) {
-    return this.storage.getArchive(this.vaultName, archiveID).then((archive) => {
+    const outStream = fs.createWriteStream(archiveID)
+    outStream.on('error', (err) => {
+        console.error('Error writing file ' + archiveID)
+    })
+
+    return this.storage.getArchive(this.vaultName, archiveID, outStream).then((archive) => {
         return new Promise((resolve, reject) => {
-            fs.writeFile(archive.key, archive.body, () => {
-                return resolve()
-            })
+            console.log('Finished restoring ' + archive.key)
+            return resolve()
         })
     })
 }
