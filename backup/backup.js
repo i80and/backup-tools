@@ -1,6 +1,7 @@
 'use strict'
 
 const fs = require('fs')
+const process = require('process')
 const s3 = require('./src/s3')
 
 const BackupSystem = function(siteID, vaultName, options) {
@@ -32,10 +33,10 @@ BackupSystem.prototype.backup = function(path, expiry) {
 
 BackupSystem.prototype.list = function() {
     // Get the S3 vault inventory
-    return this.storage.getInventory(this.vaultName).then((err, inventory) => {
+    return this.storage.getInventory(this.vaultName).then((inventory) => {
         // Using the inventory, remove any expired archives
         const results = []
-        inventory.forEach(function(archive) {
+        for(let archive of inventory) {
             const descriptionSegments = archive.description.split(' ')
             const expiryDate = new Date(Date.parse(descriptionSegments[descriptionSegments.length - 1]))
             const archiveDate = new Date(Date.parse(descriptionSegments[descriptionSegments.length - 2]))
@@ -47,24 +48,24 @@ BackupSystem.prototype.list = function() {
                 'expiry': expiryDate,
                 'date': archiveDate
             })
-        })
+        }
 
         return results
     })
 }
 
 BackupSystem.prototype.prune = function() {
-    return this.list().then((err, archives) => {
+    return this.list().then((archives) => {
         const toPrune = archives.filter((archive) => {
             return isNaN(archive.date) || isNaN(archive.expiry) || (archive.expiry < (new Date()))
-        })
+        }).map((archive) => archive.id)
 
         return this.storage.removeArchives(this.vaultName, toPrune)
     })
 }
 
 BackupSystem.prototype.restore = function(archiveID) {
-    return this.storage.getArchive(this.vaultName, archiveID).then((err, archive) => {
+    return this.storage.getArchive(this.vaultName, archiveID).then((archive) => {
         return new Promise((resolve, reject) => {
             fs.writeFile(archive.key, archive.body, () => {
                 return resolve()
@@ -95,16 +96,8 @@ function main(argv) {
             expiry.setDate(expiry.getDate() + 7)
         }
 
-        backupSystem.backup(argv.backup, expiry).then((err, archiveID) => {
-            if(err !== null) {
-                console.error('Error backing up: ' + err)
-                return reject()
-            }
-            else {
-                console.log('Backup created: Archive ' + archiveID)
-            }
-
-            return resolve()
+        return backupSystem.backup(argv.backup, expiry).then((archiveID) => {
+            console.log('Backup created: Archive ' + archiveID)
         })
     }).then(() => {
         // Prune
@@ -115,16 +108,19 @@ function main(argv) {
         // List backups
         if(!argv.list) { return }
 
-        return backupSystem.list().then((err, archives) => {
-            archives.forEach((archive) => {
+        return backupSystem.list().then((archives) => {
+            for(let archive of archives) {
                 console.log(archive.id + ':\t' + archive.date)
-            })
+            }
         })
     }).then(() => {
         // Restore
         if(!argv.restore) { return }
 
         return backupSystem.restore(argv.restore)
+    }).catch((err) => {
+        console.error(err)
+        process.exit(1)
     })
 }
 

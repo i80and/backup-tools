@@ -20,11 +20,9 @@ S3.prototype.uploadArchive = function(bucket, path, description, hints) {
 
     return new Promise((resolve, reject) => {
         this.s3.putObject(params, (err, data) => {
-            if(err !== null) {
-                return reject(err, null)
-            }
+            if(err) { return reject(err) }
 
-            return resolve(null, description)
+            return resolve(description)
         })
     })
 }
@@ -32,18 +30,16 @@ S3.prototype.uploadArchive = function(bucket, path, description, hints) {
 S3.prototype.getInventory = function(bucket) {
     return new Promise((resolve, reject) => {
         this.s3.listObjects({'Bucket': bucket}, (err, data) => {
-            if(err !== null) {
-                return reject(err, null)
-            }
+            if(err) { return reject(err) }
 
             const results = []
-            data.Contents.forEach(function(archive) {
+            for(let archive of data.Contents) {
                 results.push({
                     'id': archive.Key,
                     'description': archive.Key
                 })
-            })
-            return resolve(null, results)
+            }
+            return resolve(results)
         })
     })
 }
@@ -51,11 +47,9 @@ S3.prototype.getInventory = function(bucket) {
 S3.prototype.getArchive = function(bucket, archiveID) {
     return new Promise((resolve, reject) => {
         this.s3.getObject({'Bucket': bucket, 'Key': archiveID}, (err, data) => {
-            if(err !== null) {
-                return reject(err, null)
-            }
+            if(err) { return reject(err) }
 
-            return resolve(null, {
+            return resolve({
                 'key': archiveID,
                 'description': archiveID,
                 'body': data.Body
@@ -70,11 +64,9 @@ S3.prototype.removeArchives = function(bucket, keys) {
     return new Promise((resolve, reject) => {
         this.s3.deleteObjects({'Bucket': bucket,
                                'Delete': {'Objects': keyObjects}}, (err, data) => {
-            if(err !== null) {
-                return resolve(err, null)
-            }
+            if(err) { return reject(err) }
 
-            return resolve(null, data)
+            return resolve(data)
         })
     })
 }
