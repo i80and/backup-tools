@@ -18,7 +18,9 @@ The following configurations have been tested and are known to work:
     * gcc 4.7+
     * clang 3.2+
   * Mac OS X
-    * clang 4.2
+    * Apple LLVM 8.0.0
+  * OpenBSD 6.0
+    * GCC 4.9
   * Windows/MSYS
     * gcc 4.8
     * clang 3.4
@@ -28,7 +30,6 @@ The following configurations have been tested and are known to work:
 To build, run from the source root:
 ```
     $ cd encrypt
-    $ mkdir build && cd build && cmake ..
     $ make
     $ make test
 ```
