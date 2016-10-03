@@ -1,7 +1,7 @@
 #include "util.hpp"
 #include "securestring.hpp"
 
-int main(int argc, char** argv) {
+int main(void) {
     {
         char cstr[] = {'f', 'o', 'o', '\0'};
         SecureString s(cstr);

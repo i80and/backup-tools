@@ -1,7 +1,7 @@
 #include "util.hpp"
 #include "paddedbuffer.hpp"
 
-int main(int argc, char** argv) {
+int main(void) {
     PaddedBuffer<1, 5> pb(1);
 
     verify(pb.padding() == 1);
